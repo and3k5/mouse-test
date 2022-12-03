@@ -41,6 +41,15 @@
                 node.connect(audioContext.destination);
                 node.start(0); 
             });
+
+            
+            document.addEventListener("wheel", function (ev) {
+                console.log("up",ev);
+                const buffer = createNoteBuffer(57+shift[ev.deltaY > 0 ? 1 : 0], 0.025);
+                const node = new AudioBufferSourceNode(audioContext, {buffer: buffer });
+                node.connect(audioContext.destination);
+                node.start(0); 
+            });
         </script>
     </body>
 </html>
