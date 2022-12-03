@@ -5,6 +5,9 @@
     </head>
     <body>
         <script>
+            document.addEventListener("contextmenu", function (ev) {
+                ev.preventDefault();
+            });
             const sampleRate = 44100;
             const audioContext = new AudioContext({ sampleRate: sampleRate });
 
