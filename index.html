@@ -18,7 +18,7 @@
                 var buffer = new AudioBuffer({sampleRate: sampleRate, numberOfChannels: 1, length: sampleRate * seconds});
                 var channelData = buffer.getChannelData(0);
                 for (var i = 0;i<buffer.length;i++) {
-                    channelData[i] = Math.sin(i/sampleRate * noteToFreq(n) * Math.PI * 2) * 0.70;
+                    channelData[i] = (Math.sin(i/sampleRate * noteToFreq(n) * Math.PI * 2) * 0.70) * ((buffer.length - i) / buffer.length);
                 }
                 return buffer;
             }
