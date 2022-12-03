@@ -1,55 +1,177 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Mouse debounce test</title>
-    </head>
-    <body>
-        <script>
-            document.addEventListener("contextmenu", function (ev) {
-                ev.preventDefault();
-            });
-            const sampleRate = 44100;
-            const audioContext = new AudioContext({ sampleRate: sampleRate });
 
-            function noteToFreq(note) {
-                return 440 * Math.pow(2, (note - 57) / 12);
-            }
-            function createNoteBuffer(n, seconds) {
-                var buffer = new AudioBuffer({sampleRate: sampleRate, numberOfChannels: 1, length: sampleRate * seconds});
-                var channelData = buffer.getChannelData(0);
-                for (var i = 0;i<buffer.length;i++) {
-                    channelData[i] = (Math.sin(i/sampleRate * noteToFreq(n) * Math.PI * 2) * 0.70) * ((buffer.length - i) / buffer.length);
+<head>
+    <title>Mouse debounce test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            user-select: none;
+        }
+
+        :fullscreen,
+        ::backdrop {
+            background-color: rgb(255, 255, 255);
+        }
+    </style>
+</head>
+
+<body>
+    <div style="display: flex;flex-direction: row;align-items: start;justify-content: space-between;">
+        <div id="leftPart">
+            <button style="display: block;" id="goFullscreenBtn">Go fullscreen</button>
+        </div>
+        <div id="rightPart" style="flex:1;margin-left:15px;">
+            <textarea id="logContent" style="width:100%;height: 50vh;"></textarea>
+        </div>
+    </div>
+    <script>
+
+        document.getElementById("goFullscreenBtn").addEventListener("click", function () {
+            document.body.requestFullscreen({ navigationUI: "hide" }).then(function () {
+                console.log("entered fullscreen");
+            }).catch(function () {
+                console.log("did not enter fullscreen");
+            });
+        });
+
+        const buttonStates = [false, false, false];
+        const buttonTimestamps = [];
+        const lastRenderedButtonState = [];
+
+        const buttonContexts = [];
+
+        const margin = 15;
+
+        const render = function (time) {
+            for (var i = 0; i < buttonStates.length; i++) {
+                /***
+                 * @type CanvasRenderingContext2D
+                 */
+                let ctx;
+                if (buttonContexts[i] == null) {
+                    buttonContexts[i] = ctx = document.getElementById("leftPart").appendChild(document.createElement("canvas")).getContext("2d", { willReadFrequently: true });
+                    ctx.canvas.style.display = "block";
+                    ctx.canvas.style.marginBottom = "10px";
+                } else {
+                    ctx = buttonContexts[i];
                 }
-                return buffer;
+                let c = ctx.canvas;
+                const data = ctx.getImageData(0, 0, c.width, c.height);
+                ctx.putImageData(data, -1, 0);
+                const state = buttonStates[i];
+                if (lastRenderedButtonState[i] === !state) {
+                    ctx.fillRect(c.width - 2, 0, 1, c.height);
+                }
+                ctx.fillRect(c.width - 2, state ? 0 : c.height - 1, 1, 1);
+                lastRenderedButtonState[i] = state;
             }
+            requestAnimationFrame(render)
 
-            var shift = [0,2,3,2,1].map((x,i,a) => a.slice(0,i+1).reduce((p,c) => p+c,0));
-            
-            
-            document.addEventListener("mousedown", function (ev) {
-                console.log("down",ev);
-                const buffer = createNoteBuffer(57-12+shift[ev.button], 0.050);
-                const node = new AudioBufferSourceNode(audioContext, {buffer: buffer });
-                node.connect(audioContext.destination);
-                node.start(0); 
-            });
+        }
 
-            document.addEventListener("mouseup", function (ev) {
-                console.log("up",ev);
-                const buffer = createNoteBuffer(57+shift[ev.button], 0.050);
-                const node = new AudioBufferSourceNode(audioContext, {buffer: buffer });
-                node.connect(audioContext.destination);
-                node.start(0); 
-            });
+        requestAnimationFrame(render)
 
-            
-            document.addEventListener("wheel", function (ev) {
-                console.log("up",ev);
-                const buffer = createNoteBuffer(57+shift[ev.deltaY > 0 ? 1 : 0], 0.025);
-                const node = new AudioBufferSourceNode(audioContext, {buffer: buffer });
-                node.connect(audioContext.destination);
-                node.start(0); 
-            });
-        </script>
-    </body>
+        document.addEventListener("contextmenu", function (ev) {
+            ev.preventDefault();
+        });
+        const sampleRate = 44100;
+        const audioContext = new AudioContext({ sampleRate: sampleRate });
+
+        function noteToFreq(note) {
+            return 440 * Math.pow(2, (note - 57) / 12);
+        }
+        function createNoteBuffer(n, seconds) {
+            var buffer = new AudioBuffer({ sampleRate: sampleRate, numberOfChannels: 1, length: sampleRate * seconds });
+            var channelData = buffer.getChannelData(0);
+            for (var i = 0; i < buffer.length; i++) {
+                channelData[i] = (Math.sin(i / sampleRate * noteToFreq(n) * Math.PI * 2) * 0.70) * ((buffer.length - i) / buffer.length);
+            }
+            return buffer;
+        }
+
+        var shift = [0, 2, 3, 2, 1].map((x, i, a) => a.slice(0, i + 1).reduce((p, c) => p + c, 0));
+
+        const DURATION_SHORT = 0.025;
+        const DURATION_LONG = 0.050;
+
+        const BUFFER_CACHE_SHORT = [];
+        const BUFFER_CACHE_LONG = [];
+
+        function lazyBuffer(note, duration) {
+            let cache;
+            if (duration === DURATION_SHORT)
+                cache = BUFFER_CACHE_SHORT;
+            else if (duration === DURATION_LONG)
+                cache = BUFFER_CACHE_LONG;
+            else {
+                console.warn("duration: " + duration + " is not cached");
+                cache = null;
+            }
+            if (cache != null) {
+                if (cache[note] != null)
+                    return cache[note];
+            }
+            const buffer = createNoteBuffer(note, duration);
+            if (cache != null) {
+                cache[note] = buffer;
+            }
+            return buffer;
+        }
+
+        /***
+         * @type HTMLTextAreaElement
+         */
+        const logContent = document.getElementById("logContent");
+
+        function log(txt) {
+            console.log(txt);
+            logContent.textContent += txt + "\n";
+            logContent.scrollTop = logContent.scrollHeight - logContent.offsetHeight;
+        }
+
+        document.addEventListener("mousedown", function (ev) {
+            let delayText = "";
+            const now = performance.now();
+            if (buttonTimestamps[ev.button] > 0) {
+                const delay = now - buttonTimestamps[ev.button];
+                delayText = ` after ${Math.round(delay)}ms`;
+            }
+            buttonTimestamps[ev.button] = now;
+            log(`mouse button${ev.button} down${delayText}`);
+            buttonStates[ev.button] = true;
+            const buffer = lazyBuffer(57 - 12 + shift[ev.button], 0.050);
+            const node = new AudioBufferSourceNode(audioContext, { buffer: buffer });
+            node.connect(audioContext.destination);
+            node.start(0);
+        });
+
+        document.addEventListener("mouseup", function (ev) {
+            let delayText = "";
+            const now = performance.now();
+            if (buttonTimestamps[ev.button] > 0) {
+                const delay = now - buttonTimestamps[ev.button];
+                delayText = ` after ${Math.round(delay)}ms`;
+            }
+            buttonTimestamps[ev.button] = now;
+            log(`mouse button${ev.button} up${delayText}`);
+            buttonStates[ev.button] = false;
+            const buffer = lazyBuffer(57 + shift[ev.button], 0.050);
+            const node = new AudioBufferSourceNode(audioContext, { buffer: buffer });
+            node.connect(audioContext.destination);
+            node.start(0);
+        });
+
+
+        document.addEventListener("wheel", function (ev) {
+            log("scroll " + (ev.deltaY > 0 ? "down" : "up"));
+            const buffer = lazyBuffer(57 + shift[ev.deltaY > 0 ? 1 : 0], 0.025);
+            const node = new AudioBufferSourceNode(audioContext, { buffer: buffer });
+            node.connect(audioContext.destination);
+            node.start(0);
+        });
+    </script>
+</body>
+
 </html>
