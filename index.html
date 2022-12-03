@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Mouse debounce test</title>
+    </head>
+    <body>
+        <script>
+            const sampleRate = 44100;
+            const audioContext = new AudioContext({ sampleRate: sampleRate });
+
+            function noteToFreq(note) {
+                return 440 * Math.pow(2, (note - 57) / 12);
+            }
+            function createNoteBuffer(n, seconds) {
+                var buffer = new AudioBuffer({sampleRate: sampleRate, numberOfChannels: 1, length: sampleRate * seconds});
+                var channelData = buffer.getChannelData(0);
+                for (var i = 0;i<buffer.length;i++) {
+                    channelData[i] = Math.sin(i/sampleRate * noteToFreq(n) * Math.PI * 2) * 0.70;
+                }
+                return buffer;
+            }
+
+            var shift = [0,2,3,2,1].map((x,i,a) => a.slice(0,i+1).reduce((p,c) => p+c,0));
+            
+            
+            document.addEventListener("mousedown", function (ev) {
+                console.log("down",ev);
+                const buffer = createNoteBuffer(57-12+shift[ev.button], 0.050);
+                const node = new AudioBufferSourceNode(audioContext, {buffer: buffer });
+                node.connect(audioContext.destination);
+                node.start(0); 
+            });
+
+            document.addEventListener("mouseup", function (ev) {
+                console.log("up",ev);
+                const buffer = createNoteBuffer(57+shift[ev.button], 0.050);
+                const node = new AudioBufferSourceNode(audioContext, {buffer: buffer });
+                node.connect(audioContext.destination);
+                node.start(0); 
+            });
+        </script>
+    </body>
+</html>
